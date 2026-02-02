@@ -13,4 +13,6 @@ route.get('/:uid', verifyToken, controller.getInfo);
 // API cập nhật trạng thái (Online/Offline)
 route.post('/status', verifyToken, controller.changeStatus);
 
+route.patch('/update-profile', verifyToken, controller.updateProfile);
+
 module.exports = route;

@@ -51,7 +51,10 @@ const verifyToken = async (req, res, next) => {
     const decodedToken = await admin.auth().verifyIdToken(token, true);
     
     // Gán thông tin user vào request để dùng cho các bước sau
-    req.user = decodedToken;
+    req.user = {
+      ...decodedToken,
+      id: decodedToken.uid 
+    };
     next();
   } catch (error) {
     // LOG CHI TIẾT LỖI: Để biết chính xác tại sao Signature bị sai

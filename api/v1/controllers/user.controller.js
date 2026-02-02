@@ -49,3 +49,23 @@ module.exports.changeStatus = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 }
+
+module.exports.updateProfile = async (req, res) => {
+  try {    
+    const { displayName, photoURL } = req.body;
+    const userId = req.user.id; // Lấy từ middleware verifyToken (decode từ UID Firebase)
+
+    const updatedUser = await User.findOneAndUpdate(
+      { uid: userId }, // Tìm theo UID của Firebase
+      { displayName, photoURL },
+      { new: true }
+    );
+
+    res.status(200).json({
+      status: 'success',
+      data: updatedUser
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
