@@ -1,7 +1,7 @@
 const User = require("../models/user.model");
 
 module.exports.register = async (req, res) => {
-  const { uid, email, displayName, photoURL, role } = req.body;
+  const { uid, email, displayName, photoURL, provider, role } = req.body;
 
   try {
     // Upsert: Nếu user tồn tại thì cập nhật, chưa có thì tạo mới
@@ -11,7 +11,15 @@ module.exports.register = async (req, res) => {
         email, 
         displayName, 
         photoURL,
-        $setOnInsert: { role: role || 'user' }, // Chỉ set role khi tạo mới
+        provider,
+        $setOnInsert: { 
+          role: role || 'user',
+          favorites: {
+            songs: [],
+            artists: [],
+            albums: []
+          }
+        }, // Chỉ set role khi tạo mới
         state: 'online', 
         lastSeen: new Date() 
       },
@@ -52,12 +60,13 @@ module.exports.changeStatus = async (req, res) => {
 
 module.exports.updateProfile = async (req, res) => {
   try {    
-    const { displayName, photoURL } = req.body;
-    const userId = req.user.id; // Lấy từ middleware verifyToken (decode từ UID Firebase)
-
+    // photoURL lúc này đã được middleware uploadCloud gán link Cloudinary vào
+    const { displayName, photoURL } = req.body; 
+    const userId = req.user.uid;
+    
     const updatedUser = await User.findOneAndUpdate(
-      { uid: userId }, // Tìm theo UID của Firebase
-      { displayName, photoURL },
+      { uid: userId },
+      { displayName, photoURL }, // Cập nhật trực tiếp vì photoURL giờ là string link
       { new: true }
     );
 
