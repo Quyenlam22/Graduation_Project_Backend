@@ -14,45 +14,67 @@ module.exports.search = async (req, res) => {
             deleted: false
         }).lean();
 
-        // 2. Gọi API Deezer để tìm bài hát mới
+        // 2. Gọi API Deezer Search để lấy mảng so khớp nhanh
         const response = await fetch(`https://api.deezer.com/search?q=${encodeURIComponent(query)}`);
         const deezerData = await response.json();
         const deezerSongs = deezerData.data || [];
+        const deezerMap = new Map(deezerSongs.map(item => [item.id.toString(), item]));
 
-        // 3. Xử lý gộp dữ liệu: Ưu tiên Mongo trước, Deezer sau
-        // Bước 3.1: Dùng toàn bộ kết quả từ MongoDB làm gốc của mảng
-        const finalResult = [...mongoSongs];
-
-        // Bước 3.2: Tạo một Set chứa deezerId đã có trong Mongo để lọc trùng nhanh
-        const existingIds = new Set(mongoSongs.map(s => s.deezerId.toString()));
-
-        // Bước 3.3: Duyệt kết quả Deezer, chỉ thêm bài nào CHƯA có trong Mongo
-        deezerSongs.forEach(item => {
-            const deezerIdStr = item.id.toString();
+        // 3. Xử lý cập nhật Audio cho 100% bài từ Mongo
+        const updatedMongoSongs = await Promise.all(mongoSongs.map(async (song) => {
+            const deezerIdStr = song.deezerId.toString();
             
-            if (!existingIds.has(deezerIdStr)) {
-                finalResult.push({
-                    _id: null, // Đánh dấu chưa có trong DB nội bộ
-                    title: item.title,
-                    cover: item.album.cover_xl || item.album.cover_medium,
-                    artistName: item.artist.name,
-                    artistId: item.artist.id.toString(),
-                    albumName: item.album.title,
-                    albumId: item.album.id.toString(),
-                    artistAvatar: item.artist.picture_medium,
-                    deezerId: item.id,
-                    duration: item.duration,
-                    audio: item.preview,
-                    status: "active",
-                    like: [],
-                    listen: 0,
-                    isExternal: true // Flag để FE phân biệt dữ liệu ngoài
-                });
+            // Trường hợp 1: Có sẵn trong kết quả Search (Nhanh)
+            if (deezerMap.has(deezerIdStr)) {
+                return {
+                    ...song,
+                    audio: deezerMap.get(deezerIdStr).preview
+                };
             }
-        });
 
-        // 4. Trả về mảng: [Dữ liệu Mongo] tiếp nối là [Dữ liệu Deezer mới]
-        res.status(200).json(finalResult);
+            // Trường hợp 2: Không có trong Search -> Gọi API Track chi tiết (Chắc chắn có link mới)
+            try {
+                const trackRes = await fetch(`https://api.deezer.com/track/${deezerIdStr}`);
+                const trackData = await trackRes.json();
+                if (trackData && trackData.preview) {
+                    return {
+                        ...song,
+                        audio: trackData.preview
+                    };
+                }
+            } catch (err) {
+                console.error(`Không thể refresh bài ${song.title}:`, err.message);
+            }
+            
+            return song; // Trả về gốc nếu mọi cách đều lỗi
+        }));
+
+        // 4. Lấy danh sách ID đã xử lý để lọc trùng với dữ liệu ngoài
+        const existingIds = new Set(updatedMongoSongs.map(s => s.deezerId.toString()));
+
+        // 5. Gom các bài hát mới hoàn toàn từ Deezer
+        const externalSongs = deezerSongs
+            .filter(item => !existingIds.has(item.id.toString()))
+            .map(item => ({
+                _id: null,
+                title: item.title,
+                cover: item.album.cover_xl || item.album.cover_medium,
+                artistName: item.artist.name,
+                artistId: item.artist.id.toString(),
+                albumName: item.album.title,
+                albumId: item.album.id.toString(),
+                artistAvatar: item.artist.picture_medium,
+                deezerId: item.id,
+                duration: item.duration,
+                audio: item.preview,
+                status: "active",
+                like: [],
+                listen: 0,
+                isExternal: true 
+            }));
+
+        // Trả về kết quả cuối cùng
+        res.status(200).json([...updatedMongoSongs, ...externalSongs]);
 
     } catch (error) {
         console.error("Search Error:", error);

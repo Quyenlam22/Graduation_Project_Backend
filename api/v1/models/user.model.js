@@ -23,6 +23,10 @@ const userSchema = new mongoose.Schema({
     albums: [{ 
       type: mongoose.Schema.Types.ObjectId, 
       ref: 'Album' 
+    }],
+    playlists: [{ 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'Playlist' 
     }]
   },
   state: { type: String, default: 'online' },

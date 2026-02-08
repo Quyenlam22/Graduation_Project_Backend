@@ -56,29 +56,57 @@ module.exports.search = async (req, res) => {
 }
 
 module.exports.getSongs = async (req, res) => {
-    const { id } = req.params; // id ở đây là albumId (deezerId)
-    
+    const { id } = req.params; // albumId hoặc artistId (deezerId)
+
     try {
-        // Truy vấn vào DB để tìm các bài hát có albumId tương ứng
-        // Chúng ta sắp xếp theo lượt nghe (listen) giảm dần để lấy các bài hay nhất
-        const songs = await Song.find({
-            albumId: id,
+        // 1. Lấy danh sách bài hát hiện có trong DB nội bộ
+        const localSongs = await Song.find({
+            $or: [{ albumId: id }, { artistId: id }], // Linh hoạt cho cả Album và Artist
             deleted: false,
             status: "active"
         })
-        .sort({ listen: -1 }) // Ưu tiên các bài hát có nhiều lượt nghe nhất
-        .limit(10)            // Giới hạn 10 bài tương đương với API cũ
-        .lean();              // Chuyển về Plain Object để xử lý nhanh hơn
+        .sort({ listen: -1 })
+        .limit(20) // Bạn có thể tăng giới hạn nếu muốn
+        .lean();
 
-        // Trả về kết quả cho Frontend
-        // Lưu ý: Chúng ta trả về mảng rỗng [] nếu không tìm thấy, tránh crash FE
-        res.status(200).json(songs);
+        if (localSongs.length === 0) {
+            return res.status(200).json([]);
+        }
+
+        // 2. Gọi API Deezer để lấy thông tin "tươi" nhất (đặc biệt là link audio)
+        // Lưu ý: Tùy vào route bạn gọi là artist hay album mà endpoint sẽ khác nhau
+        // Ở đây giả định bạn đang gọi theo Album
+        const response = await fetch(`https://api.deezer.com/album/${id}/tracks`);
+        const deezerData = await response.json();
+        const deezerTracks = deezerData.data || [];
+
+        // 3. Map link audio mới từ Deezer vào dữ liệu local
+        // Đồng thời cập nhật link mới vào DB để dùng cho các lần sau (background update)
+        const updatedSongs = await Promise.all(localSongs.map(async (localSong) => {
+            // Tìm bài hát tương ứng trong danh sách vừa lấy từ Deezer
+            const matchTrack = deezerTracks.find(t => t.id == localSong.deezerId);
+            
+            if (matchTrack && matchTrack.preview) {
+                // Nếu link audio cũ khác link mới (đã hết hạn), cập nhật DB
+                if (localSong.audio !== matchTrack.preview) {
+                    await Song.updateOne(
+                        { _id: localSong._id },
+                        { $set: { audio: matchTrack.preview } }
+                    );
+                    localSong.audio = matchTrack.preview; // Cập nhật luôn vào object trả về
+                }
+            }
+            return localSong;
+        }));
+
+        // 4. Trả về dữ liệu đã có link audio mới nhất
+        res.status(200).json(updatedSongs);
 
     } catch (error) {
-        console.error("Lỗi lấy bài hát từ DB:", error);
+        console.error("Lỗi getSongs & Refresh Link:", error);
         res.status(500).json({ 
-            message: "Lỗi khi truy xuất danh sách bài hát nội bộ", 
+            message: "Lỗi hệ thống", 
             error: error.message 
         });
     }
-}
+};
