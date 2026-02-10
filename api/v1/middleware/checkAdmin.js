@@ -82,16 +82,19 @@ const verifyToken = async (req, res, next) => {
 ========================= */
 const isAdmin = async (req, res, next) => {
   try {
-    // 3. Truy vấn User từ MongoDB bằng UID đã được Firebase xác thực
-    const user = await User.findOne({ uid: req.user.uid });
+    // Đảm bảo req.user đã tồn tại (do verifyToken gán vào)
+    if (!req.user || !req.user.uid) {
+        return res.status(401).json({ message: 'Thông tin xác thực không đầy đủ!' });
+    }
+
+    const user = await User.findOne({ uid: req.user.uid }).select('role'); // Chỉ lấy field role để tối ưu tốc độ
 
     if (user && user.role === 'admin') {
       return next();
     }
 
-    // Nếu không phải Admin thì chặn lại ngay
     return res.status(403).json({
-      message: 'Quyền truy cập bị từ chối. Bạn không phải Admin.',
+      message: 'Truy cập bị từ chối. Tài khoản của bạn không có quyền Admin.',
     });
   } catch (error) {
     console.error('>>> Lỗi kiểm tra quyền admin:', error.message);
