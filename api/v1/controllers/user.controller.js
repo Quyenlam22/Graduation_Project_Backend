@@ -161,3 +161,62 @@ module.exports.createAdmin = async (req, res) => {
     });
   }
 };
+
+module.exports.updateUser = async (req, res) => {
+  const { uid } = req.params;
+  const { displayName, role } = req.body;
+
+  try {
+    const updateData = { displayName, role };
+
+    // Nếu có file ảnh mới từ middleware uploadCloud
+    if (req.body.photoURL) {
+      updateData.photoURL = req.body.photoURL;
+    }    
+
+    const updatedUser = await User.findOneAndUpdate(
+      { uid: uid },
+      updateData,
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ success: false, message: "User not found in Database!" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "User updated successfully!",
+      data: updatedUser
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+module.exports.deleteUser = async (req, res) => {
+  const { uid } = req.params;
+
+  try {
+    // 1. Xóa trên Firebase Auth trước
+    try {
+      await admin.auth().deleteUser(uid);
+    } catch (fbError) {
+      console.error("Firebase Delete Error (User might not exist on FB):", fbError.message);
+    }
+
+    // 2. Xóa trên MongoDB
+    const deletedUser = await User.findOneAndDelete({ uid: uid });
+
+    if (!deletedUser) {
+      return res.status(404).json({ success: false, message: "User not found in Database!" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "User deleted successfully!"
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};

@@ -3,7 +3,10 @@ const route = express.Router();
 const multer = require("multer");
 
 const controller = require('../controllers/user.controller');
-const { verifyToken, isAdmin } = require('../middleware/checkAdmin'); // Must login to call API
+const {
+  verifyToken,
+  isAdmin
+} = require('../middleware/checkAdmin'); // Must login to call API
 const uploadCloud = require("../middleware/uploadCloud.middleware");
 
 const upload = multer();
@@ -22,5 +25,16 @@ route.post('/status', verifyToken, controller.changeStatus);
 route.patch('/update-profile', verifyToken, upload.single("photoURL"), uploadCloud.uploadSingle, controller.updateProfile);
 
 route.post("/create-admin", verifyToken, isAdmin, controller.createAdmin);
+
+route.patch(
+  "/update/:uid",
+  verifyToken,
+  isAdmin,
+  multer().single("photoURL"),
+  uploadCloud.uploadSingle,
+  controller.updateUser
+);
+
+route.delete("/delete/:uid", verifyToken, isAdmin, controller.deleteUser);
 
 module.exports = route;
