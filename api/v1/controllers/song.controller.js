@@ -81,3 +81,138 @@ module.exports.search = async (req, res) => {
         res.status(500).json({ message: "Lỗi khi tìm kiếm bài hát." });
     }
 };
+
+module.exports.getAllSongs = async (req, res) => {
+    try {
+        const songs = await Song.find({ deleted: false }).sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            message: "Get the playlist of successful songs!",
+            data: songs
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Err0r Server: " + error.message
+        });
+    }
+};
+
+module.exports.create = async (req, res) => {
+  try {
+    const { title, artistName, albumName, duration, audio, lyrics, status, cover } = req.body;
+    
+    // Sau này có thể thêm check bằng dezzerId
+    if (title) {
+      const existSong = await Song.findOne({ title, deleted: false });
+      if (existSong) return res.status(400).json({ success: false, message: "This title song already exists!" });
+    }
+
+    const newSong = new Song({
+      title,
+      artistName,
+      albumName,
+      duration,
+      audio,
+      lyrics,
+      status,
+    //   deezerId,
+      cover
+    });
+
+    await newSong.save();
+
+    res.status(201).json({
+      success: true,
+      message: "New song created successfully!",
+      data: newSong
+    });
+  } catch (error) {
+    console.error("Create Song Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "System error while creating song."
+    });
+  }
+};
+
+module.exports.update = async (req, res) => {
+  const { id } = req.params;
+  const { title, artistName, albumName, duration, audio, lyrics, status, cover } = req.body;
+
+  try {
+    const updateData = { 
+      title, 
+      artistName, 
+      albumName, 
+      duration, 
+      audio, 
+      lyrics, 
+      status 
+    };
+
+    if (cover) {
+      updateData.cover = cover;
+    }
+
+    // Kiểm tra trùng tên với bài hát khác (trừ chính nó)
+    if (title) {
+      const existSong = await Song.findOne({ 
+        title, 
+        _id: { $ne: id }, 
+        deleted: false 
+      });
+      if (existSong) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "This title song already exists!" 
+        });
+      }
+    }
+
+    const updatedSong = await Song.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    );
+
+    if (!updatedSong) {
+      return res.status(404).json({ success: false, message: "Song not found!" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Song updated successfully!",
+      data: updatedSong
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+module.exports.delete = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const deletedSong = await Song.findByIdAndUpdate(
+      id, 
+      { 
+        deleted: true,
+        deletedAt: new Date()
+      },
+      { new: true }
+    );
+
+    if (!deletedSong) {
+      return res.status(404).json({ success: false, message: "Song not found!" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Song deleted successfully!"
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

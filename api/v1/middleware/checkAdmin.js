@@ -14,14 +14,14 @@ if (!admin.apps.length) {
     const cleanBase64 = rawBase64.replace(/\s/g, ''); 
     
     if (!cleanBase64) {
-      throw new Error("Biến môi trường GOOGLE_SERVICE_ACCOUNT_BASE64 đang trống!");
+      throw new Error("The environment variable GOOGLE_SERVICE_ACCOUNT BASE64 is empty!");
     }
 
     const decodedServiceAccount = Buffer.from(cleanBase64, 'base64').toString('utf8');
     const serviceAccount = JSON.parse(decodedServiceAccount);
 
     // LOG QUAN TRỌNG: Để bạn đối soát Project ID trên Render Logs
-    console.log(">>> Đang khởi tạo Firebase Admin cho Project:", serviceAccount.project_id);
+    console.log(">>> Initializing Firebase Admin for the Project:", serviceAccount.project_id);
 
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
@@ -40,7 +40,7 @@ const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Không tìm thấy token xác thực!' });
+    return res.status(401).json({ message: 'No authentication token found!' });
   }
 
   const token = authHeader.split(' ')[1];
@@ -58,15 +58,15 @@ const verifyToken = async (req, res, next) => {
     next();
   } catch (error) {
     // LOG CHI TIẾT LỖI: Để biết chính xác tại sao Signature bị sai
-    console.error('>>> Lỗi Verify Token:', error.code, error.message);
+    console.error('>>> Token Verification Error:', error.code, error.message);
     
     // Trả về thông báo lỗi cụ thể để Debug trên Postman dễ hơn
-    let errorMessage = 'Token không hợp lệ hoặc lỗi cấu hình server!';
+    let errorMessage = 'Invalid token or server configuration error!';
     
     if (error.code === 'auth/id-token-expired') {
-        errorMessage = 'Token đã hết hạn, vui lòng đăng nhập lại!';
+        errorMessage = 'Your token has expired, please log in again!';
     } else if (error.code === 'auth/argument-error') {
-        errorMessage = 'Cấu hình Firebase (Private Key) không khớp với Token gửi lên!';
+        errorMessage = 'The Firebase configuration (Private Key) does not match the token submitted!';
     }
 
     return res.status(403).json({ 
@@ -84,7 +84,7 @@ const isAdmin = async (req, res, next) => {
   try {
     // Đảm bảo req.user đã tồn tại (do verifyToken gán vào)
     if (!req.user || !req.user.uid) {
-        return res.status(401).json({ message: 'Thông tin xác thực không đầy đủ!' });
+        return res.status(401).json({ message: 'The verification information is incomplete!' });
     }
 
     const user = await User.findOne({ uid: req.user.uid }).select('role'); // Chỉ lấy field role để tối ưu tốc độ
@@ -94,11 +94,11 @@ const isAdmin = async (req, res, next) => {
     }
 
     return res.status(403).json({
-      message: 'Truy cập bị từ chối. Tài khoản của bạn không có quyền Admin.',
+      message: 'Access denied. Your account does not have administrator privileges.',
     });
   } catch (error) {
-    console.error('>>> Lỗi kiểm tra quyền admin:', error.message);
-    return res.status(500).json({ message: 'Lỗi hệ thống khi kiểm tra quyền hạn.' });
+    console.error('>>> Admin privilege check error:', error.message);
+    return res.status(500).json({ message: 'System error while checking permissions.' });
   }
 };
 

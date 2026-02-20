@@ -8,7 +8,7 @@ const artistSchema = new mongoose.Schema({
     avatar: String,
     
     // ID từ Deezer để tránh trùng lặp khi cào data
-    deezerId: { type: String, unique: true, index: true },
+    deezerId: { type: Number, unique: true, sparse: true },
     
     // Mảng lưu ID của những người dùng nhấn Like/Follow nghệ sĩ này
     like: {

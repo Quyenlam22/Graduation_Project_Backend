@@ -16,7 +16,7 @@ const songSchema = new mongoose.Schema({
     albumName: String,
 
     // Deezer cung cấp ID bài hát gốc, nên lưu lại để tránh trùng lặp khi cào data
-    deezerId: { type: Number, unique: true }, 
+    deezerId: { type: Number, unique: true, sparse: true }, 
 
     duration: Number, // Thời lượng (giây) - Rất quan trọng để hiển thị player
     
