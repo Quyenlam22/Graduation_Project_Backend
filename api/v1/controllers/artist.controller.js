@@ -123,3 +123,90 @@ module.exports.getSongs = async (req, res) => {
         });
     }
 }
+
+// [GET] /api/artists
+module.exports.getAllArtists = async (req, res) => {
+  try {
+    // Chỉ lấy các artist chưa bị xóa (deleted: false)
+    const artists = await Artist.find({ deleted: false }).sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: artists
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server Error: " + error.message });
+  }
+};
+
+// [POST] /api/artists/create
+module.exports.create = async (req, res) => {
+  try {
+    const { name, deezerId, nb_fan, status, avatar } = req.body;
+
+    // Kiểm tra trùng tên
+    const existArtist = await Artist.findOne({ name, deleted: false });
+    if (existArtist) {
+      return res.status(400).json({ success: false, message: "This artist has existed!" });
+    }
+
+    const newArtist = new Artist({
+      name,
+      deezerId,
+      nb_fan,
+      status,
+      avatar 
+    });
+
+    await newArtist.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Another successful artist!",
+      data: newArtist
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// [PATCH] /api/artists/update/:id
+module.exports.update = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = { ...req.body };
+
+    const updatedArtist = await Artist.findByIdAndUpdate(id, updateData, { new: true });
+
+    if (!updatedArtist) {
+      return res.status(404).json({ success: false, message: "No artist found!" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Update artist successfully!",
+      data: updatedArtist
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// [DELETE] /api/artists/delete/:id
+module.exports.delete = async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Thực hiện xóa mềm
+    await Artist.findByIdAndUpdate(id, { 
+      deleted: true, 
+      deletedAt: new Date() 
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Successfully removed the artist!"
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
