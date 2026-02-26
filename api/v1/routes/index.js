@@ -3,6 +3,7 @@ const userRoute = require("./user.route");
 const songRoute = require("./song.route");
 const artistRoute = require("./artist.route");
 const albumRoute = require("./album.route");
+const playlistRoute = require("./playlist.route");
 
 module.exports = (app) => {
   const version = `/api/v1`;
@@ -12,4 +13,5 @@ module.exports = (app) => {
   app.use(`${version}/songs`, songRoute);
   app.use(`${version}/artists`, artistRoute);
   app.use(`${version}/albums`, albumRoute);
+  app.use(`${version}/playlists`, playlistRoute);
 }
