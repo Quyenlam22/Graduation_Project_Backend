@@ -143,8 +143,28 @@ module.exports.update = async (req, res) => {
     const { id } = req.params;
     const dataUpdate = { ...req.body };
 
+    // 1. Cập nhật thông tin Album gốc
     const updatedAlbum = await Album.findByIdAndUpdate(id, dataUpdate, { new: true });
-    res.status(200).json({ success: true, message: "Album update successful!", data: updatedAlbum });
+
+    if (!updatedAlbum) {
+      return res.status(404).json({ success: false, message: "No album found!" });
+    }
+
+    // 2. LOGIC CẬP NHẬT ĐỒNG BỘ SANG SONG
+    await Song.updateMany(
+      { albumId: id }, 
+      { 
+        $set: { 
+          albumName: updatedAlbum.title 
+        } 
+      }
+    );
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Album and related songs updated successfully!", 
+      data: updatedAlbum 
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

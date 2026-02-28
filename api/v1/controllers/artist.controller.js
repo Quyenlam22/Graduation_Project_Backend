@@ -176,15 +176,27 @@ module.exports.update = async (req, res) => {
     const { id } = req.params;
     const updateData = { ...req.body };
 
+    // 1. Cập nhật thông tin Nghệ sĩ
     const updatedArtist = await Artist.findByIdAndUpdate(id, updateData, { new: true });
 
     if (!updatedArtist) {
       return res.status(404).json({ success: false, message: "No artist found!" });
     }
 
+    // 2. LOGIC CẬP NHẬT ĐỒNG BỘ SANG SONG
+    await Song.updateMany(
+      { artistId: id }, 
+      { 
+        $set: { 
+          artistName: updatedArtist.name,
+          artistAvatar: updatedArtist.avatar 
+        } 
+      }
+    );
+
     res.status(200).json({
       success: true,
-      message: "Update artist successfully!",
+      message: "Update artist and related songs successfully!",
       data: updatedArtist
     });
   } catch (error) {

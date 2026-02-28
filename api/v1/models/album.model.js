@@ -9,7 +9,7 @@ const albumSchema = new mongoose.Schema({
     description: String,
     
     // ID từ Deezer để đồng bộ
-    deezerId: { type: Number, unique: true, sparse: true }, 
+    deezerId: { type: String, unique: true, sparse: true }, 
     
     // Thông tin nghệ sĩ sở hữu album
     artistName: String,
