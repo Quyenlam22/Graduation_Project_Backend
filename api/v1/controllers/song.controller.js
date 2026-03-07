@@ -257,3 +257,25 @@ module.exports.delete = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+module.exports.getPreview = async (req, res) => {
+    try {
+        const { deezerId } = req.params;
+        if (!deezerId) return res.status(400).json({ success: false, message: "Missing Deezer ID" });
+
+        // Server gọi Deezer sẽ không bị lỗi CORS
+        const response = await fetch(`https://api.deezer.com/track/${deezerId}`);
+        const data = await response.json();
+
+        if (data && data.preview) {
+            return res.json({ 
+                success: true, 
+                preview: data.preview // Link mp3 mới nhất
+            });
+        }
+        
+        res.status(404).json({ success: false, message: "No sample found." });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
