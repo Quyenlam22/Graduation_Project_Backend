@@ -24,6 +24,10 @@ const userSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId, 
       ref: 'Album' 
     }],
+    artists: [{ 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'Artist' 
+    }],
     playlists: [{ 
       type: mongoose.Schema.Types.ObjectId, 
       ref: 'Playlist' 

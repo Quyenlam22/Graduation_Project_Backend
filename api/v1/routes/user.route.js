@@ -37,4 +37,6 @@ route.patch(
 
 route.delete("/delete/:uid", verifyToken, isAdmin, controller.deleteUser);
 
+route.post("/toggle-favorite", verifyToken, controller.toggleFavorite);
+
 module.exports = route;

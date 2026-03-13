@@ -19,4 +19,6 @@ route.patch("/update/:id", verifyToken, isAdmin, upload.single("avatar"), upload
 
 route.delete("/delete/:id", verifyToken, isAdmin, controller.delete);
 
+route.post("/get-playlists-by-ids", controller.getPlaylistsByIds);
+
 module.exports = route;

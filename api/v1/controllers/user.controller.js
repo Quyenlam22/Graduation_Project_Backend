@@ -1,3 +1,6 @@
+const Song = require("../models/song.model");
+const Album = require("../models/album.model");
+const Artist = require("../models/artist.model");
 const User = require("../models/user.model");
 const admin = require('firebase-admin');
 
@@ -18,7 +21,8 @@ module.exports.register = async (req, res) => {
           favorites: {
             songs: [],
             artists: [],
-            albums: []
+            albums: [],
+            artists: []
           }
         }, // Chỉ set role khi tạo mới
         state: 'online', 
@@ -218,5 +222,64 @@ module.exports.deleteUser = async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+module.exports.toggleFavorite = async (req, res) => {
+  const { uid, type, itemId } = req.body; 
+  // type: 'songs', 'albums', 'artists' (lưu ý khớp với tên Model)
+
+  try {
+    const validTypes = ['songs', 'albums', 'playlists', 'artists'];
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({ message: "Loại yêu thích không hợp lệ" });
+    }
+
+    const user = await User.findOne({ uid });
+    if (!user) return res.status(404).json({ message: "Người dùng không tồn tại" });
+
+    // 1. Xác định Model cần tác động dựa trên type
+    let TargetModel;
+    if (type === 'songs') TargetModel = Song;
+    else if (type === 'albums') TargetModel = Album;
+    else if (type === 'artists') TargetModel = Artist;
+    // (Nếu có model Playlist thì thêm vào đây)
+
+    // 2. Kiểm tra và cập nhật mảng favorites của User
+    const favoriteList = user.favorites[type];
+    const index = favoriteList.indexOf(itemId);
+
+    if (index > -1) {
+      // --- TRƯỜNG HỢP: BỎ TIM (UNLIKE) ---
+      favoriteList.splice(index, 1);
+
+      // Cập nhật mảng 'like' trong Model mục tiêu (Xóa userId khỏi mảng like)
+      if (TargetModel) {
+        await TargetModel.findByIdAndUpdate(itemId, {
+          $pull: { like: user._id.toString() } // Hoặc dùng uid tùy vào cách bạn định nghĩa mảng like
+        });
+      }
+    } else {
+      // --- TRƯỜNG HỢP: BẤM TIM (LIKE) ---
+      favoriteList.push(itemId);
+
+      // Cập nhật mảng 'like' trong Model mục tiêu (Thêm userId vào mảng like)
+      if (TargetModel) {
+        await TargetModel.findByIdAndUpdate(itemId, {
+          $addToSet: { like: user._id.toString() } // $addToSet để tránh trùng lặp
+        });
+      }
+    }
+
+    // 3. Lưu lại User
+    await user.save();
+    
+    res.status(200).json({ 
+      success: true, 
+      type,
+      updatedFavorites: user.favorites[type] 
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };

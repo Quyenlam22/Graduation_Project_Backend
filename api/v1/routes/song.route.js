@@ -24,4 +24,6 @@ route.patch("/update/:id", verifyToken, isAdmin, upload.single("cover"), uploadC
 
 route.delete("/delete/:id", verifyToken, isAdmin, controller.delete);
 
+route.post("/get-favorites", controller.getFavorites);
+
 module.exports = route;

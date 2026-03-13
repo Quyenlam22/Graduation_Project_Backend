@@ -222,3 +222,16 @@ module.exports.delete = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+module.exports.getArtistsByIds = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        const artists = await Artist.find({
+            _id: { $in: ids },
+            deleted: false
+        });
+        res.json({ success: true, data: artists });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Error retrieving artist list!" });
+    }
+};

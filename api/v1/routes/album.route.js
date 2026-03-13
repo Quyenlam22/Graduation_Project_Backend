@@ -27,4 +27,6 @@ route.patch("/update/:id", verifyToken, isAdmin, upload.single("avatar"), upload
 
 route.delete("/delete/:id", verifyToken, isAdmin, upload.single("avatar"), uploadCloud.uploadSingle, controller.delete);
 
+route.post("/get-albums-by-ids", controller.getAlbumsByIds);
+
 module.exports = route;

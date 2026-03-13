@@ -279,3 +279,19 @@ module.exports.getPreview = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+module.exports.getFavorites = async (req, res) => {
+    try {
+        const { ids } = req.body; // Frontend gửi lên: { ids: ["id1", "id2"] }
+        const songs = await Song.find({
+            _id: { $in: ids },
+            deleted: false
+        });
+        res.json({
+            success: true,
+            data: songs
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+};

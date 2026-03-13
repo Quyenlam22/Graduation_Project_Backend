@@ -182,3 +182,16 @@ module.exports.delete = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+module.exports.getAlbumsByIds = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        const albums = await Album.find({
+            _id: { $in: ids },
+            deleted: false
+        });
+        res.json({ success: true, data: albums });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Error retrieving album list!" });
+    }
+};

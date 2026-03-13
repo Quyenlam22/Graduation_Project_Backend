@@ -84,3 +84,16 @@ module.exports.delete = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+module.exports.getPlaylistsByIds = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        const playlists = await Playlist.find({
+            _id: { $in: ids },
+            deleted: false
+        });
+        res.json({ success: true, data: playlists });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Error retrieving playlist list!" });
+    }
+};

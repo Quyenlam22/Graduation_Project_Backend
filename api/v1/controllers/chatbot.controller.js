@@ -8,9 +8,6 @@ module.exports.chatbot = async (req, res) => {
       return res.status(400).json({ error: "Message required" });
     }
 
-    console.log(req.body);
-    
-
     const chatHistory = await Chat.find({})
       .sort({ createdAt: 1 })
       .limit(20)
