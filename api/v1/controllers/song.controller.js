@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Album = require("../models/album.model");
 const Song = require("../models/song.model");
 
@@ -44,7 +45,7 @@ module.exports.search = async (req, res) => {
                     };
                 }
             } catch (err) {
-                console.error(`Không thể refresh bài ${song.title}:`, err.message);
+                console.error(`Unable to refresh song ${song.title}:`, err.message);
             }
             
             return song; // Trả về gốc nếu mọi cách đều lỗi
@@ -79,7 +80,7 @@ module.exports.search = async (req, res) => {
 
     } catch (error) {
         console.error("Search Error:", error);
-        res.status(500).json({ message: "Lỗi khi tìm kiếm bài hát." });
+        res.status(500).json({ message: "Error when searching for songs." });
     }
 };
 
@@ -260,38 +261,110 @@ module.exports.delete = async (req, res) => {
 
 module.exports.getPreview = async (req, res) => {
     try {
-        const { deezerId } = req.params;
-        if (!deezerId) return res.status(400).json({ success: false, message: "Missing Deezer ID" });
+        const { deezerId } = req.params; // Nhận deezerId từ URL (vd: dz_141339819 hoặc 65abc...)
 
-        // Server gọi Deezer sẽ không bị lỗi CORS
-        const response = await fetch(`https://api.deezer.com/track/${deezerId}`);
-        const data = await response.json();
-
-        if (data && data.preview) {
-            return res.json({ 
-                success: true, 
-                preview: data.preview // Link mp3 mới nhất
-            });
+        if (!deezerId) {
+            return res.status(400).json({ success: false, message: "Missing Song ID" });
         }
+
+        const idStr = String(deezerId);
+
+        // --- TRƯỜNG HỢP 1: NHẠC NGOẠI (DEEZER) ---
+        if (idStr.startsWith('dz_') || !mongoose.Types.ObjectId.isValid(idStr)) {
+            
+            // Lấy ID số thuần túy (loại bỏ dz_ nếu có)
+            const deezerId = idStr.replace('dz_', '');
+          
+            // Gọi API Deezer lấy thông tin mới nhất (đặc biệt là link preview mới)
+            const response = await fetch(`https://api.deezer.com/track/${deezerId}`);
+            const data = await response.json();
+
+            if (data && data.preview) {
+                return res.json({ 
+                    success: true, 
+                    preview: data.preview,
+                    source: 'deezer' 
+                });
+            }
+        } 
         
-        res.status(404).json({ success: false, message: "No sample found." });
+        // --- TRƯỜNG HỢP 2: NHẠC NỘI BỘ (LOCAL) ---
+        else {
+            const song = await Song.findById(idStr);
+            if (song && song.src) {
+                return res.json({ 
+                    success: true, 
+                    preview: song.src,
+                    source: 'local'
+                });
+            }
+        }
+
+        res.status(404).json({ success: false, message: "The sound is absent or has been removed." });
+
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        console.error("Preview Error:", error);
+        res.status(500).json({ success: false, message: "Server error when retrieving music source." });
     }
 };
 
 module.exports.getFavorites = async (req, res) => {
     try {
-        const { ids } = req.body; // Frontend gửi lên: { ids: ["id1", "id2"] }
-        const songs = await Song.find({
-            _id: { $in: ids },
+        const { ids } = req.body; // ids: ["65abc...", "dz_141339819", ...]
+        if (!ids || !Array.isArray(ids)) {
+            return res.status(400).json({ success: false, message: "Invalid IDs" });
+        }
+
+        // 1. Phân loại ID
+        const localIds = ids.filter(id => !String(id).startsWith('dz_'));
+        const deezerIds = ids
+            .filter(id => String(id).startsWith('dz_'))
+            .map(id => id.replace('dz_', ''));
+
+        // 2. Lấy nhạc Local từ Database của bạn
+        const localSongs = await Song.find({
+            _id: { $in: localIds },
             deleted: false
+        }).lean(); // Dùng .lean() để dễ dàng thêm trường 'source'
+
+        // Gắn thêm flag source để Frontend nhận biết
+        const formattedLocal = localSongs.map(s => ({ ...s, source: 'local' }));
+
+        // 3. Gọi trực tiếp API Deezer cho các bài nhạc ngoại
+        // Dùng Promise.all để gọi tất cả các ID Deezer cùng lúc (tối ưu tốc độ)
+        const deezerPromises = deezerIds.map(async (id) => {
+            try {
+                const response = await fetch(`https://api.deezer.com/track/${id}`);
+                const data = await response.json();
+                
+                if (data && !data.error) {
+                    return {
+                        _id: `dz_${data.id}`,
+                        title: data.title,
+                        artistName: data.artist.name,
+                        cover: data.album.cover_medium,
+                        src: data.preview,
+                        duration: data.duration,
+                        source: 'deezer'
+                    };
+                }
+                return null;
+            } catch (err) {
+                console.error(`Error fetching Deezer ID ${id}:`, err);
+                return null;
+            }
         });
+
+        const deezerResults = await Promise.all(deezerPromises);
+        const formattedDeezer = deezerResults.filter(s => s !== null);
+
         res.json({
             success: true,
-            data: songs
+            data: [...formattedLocal, ...formattedDeezer]
         });
+
     } catch (error) {
+        console.error("Get Favorites Error:", error);
         res.status(500).json({ success: false, message: "Server Error" });
     }
 };

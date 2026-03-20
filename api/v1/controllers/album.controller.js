@@ -24,7 +24,7 @@ module.exports.search = async (req, res) => {
                 const albumDetail = await response.json();
                 nbTracks = albumDetail.nb_tracks || 0;
             } catch (e) {
-                console.error(`Không thể lấy nb_tracks cho album ${item._id}`);
+                console.error(`Unable to retrieve nb_tracks for album ${item._id}`);
             }
 
             const randomLikeCount = Math.floor(Math.random() * (200 - 50 + 1)) + 50;
@@ -103,9 +103,9 @@ module.exports.getSongs = async (req, res) => {
         res.status(200).json(updatedSongs);
 
     } catch (error) {
-        console.error("Lỗi getSongs & Refresh Link:", error);
+        console.error("Error getSongs & Refresh Link:", error);
         res.status(500).json({ 
-            message: "Lỗi hệ thống", 
+            message: "System error", 
             error: error.message 
         });
     }

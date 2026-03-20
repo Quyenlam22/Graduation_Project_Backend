@@ -78,7 +78,7 @@ module.exports.search = async (req, res) => {
                     await Promise.all(songUpsertPromises);
                 }
             } catch (apiError) {
-                console.error(`Không thể lấy bài hát cho artist ${deezerIdStr}:`, apiError.message);
+                console.error(`Unable to retrieve song for artist ${deezerIdStr}:`, apiError.message);
             }
 
             finalResults.push(updatedArtist);
@@ -89,7 +89,7 @@ module.exports.search = async (req, res) => {
 
     } catch (error) {
         console.error("Sync Error:", error);
-        res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
+        res.status(500).json({ message: "System error", error: error.message });
     }
 };
 
@@ -105,20 +105,17 @@ module.exports.getSongs = async (req, res) => {
             status: "active"
         })
         .sort({ listen: -1 }) // Ưu tiên các bài hát có nhiều lượt nghe nhất
-        .limit(10)            // Giới hạn 10 bài tương đương với API cũ
+        .limit(10)
         .lean();              // Chuyển về Plain Object để xử lý nhanh hơn
-
-        console.log(id);
-        
 
         // Trả về kết quả cho Frontend
         // Lưu ý: Chúng ta trả về mảng rỗng [] nếu không tìm thấy, tránh crash FE
         res.status(200).json(songs);
 
     } catch (error) {
-        console.error("Lỗi lấy bài hát từ DB:", error);
+        console.error("Error retrieving songs from DB:", error);
         res.status(500).json({ 
-            message: "Lỗi khi truy xuất danh sách bài hát nội bộ", 
+            message: "Error retrieving internal playlist", 
             error: error.message 
         });
     }

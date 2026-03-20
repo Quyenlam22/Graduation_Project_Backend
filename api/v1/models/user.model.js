@@ -12,10 +12,7 @@ const userSchema = new mongoose.Schema({
     default: 'user' 
   },
   favorites: {
-    songs: [{ 
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: 'Song' 
-    }],
+    songs: [{ type: String }],
     artists: [{ 
       type: mongoose.Schema.Types.ObjectId, 
       ref: 'Artist' 

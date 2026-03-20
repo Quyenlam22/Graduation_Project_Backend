@@ -226,8 +226,7 @@ module.exports.deleteUser = async (req, res) => {
 };
 
 module.exports.toggleFavorite = async (req, res) => {
-  const { uid, type, itemId } = req.body; 
-  // type: 'songs', 'albums', 'artists' (lưu ý khớp với tên Model)
+  const { uid, type, itemId } = req.body;
 
   try {
     const validTypes = ['songs', 'albums', 'playlists', 'artists'];
@@ -238,45 +237,51 @@ module.exports.toggleFavorite = async (req, res) => {
     const user = await User.findOne({ uid });
     if (!user) return res.status(404).json({ message: "Người dùng không tồn tại" });
 
-    // 1. Xác định Model cần tác động dựa trên type
-    let TargetModel;
-    if (type === 'songs') TargetModel = Song;
-    else if (type === 'albums') TargetModel = Album;
-    else if (type === 'artists') TargetModel = Artist;
-    // (Nếu có model Playlist thì thêm vào đây)
-
-    // 2. Kiểm tra và cập nhật mảng favorites của User
     const favoriteList = user.favorites[type];
     const index = favoriteList.indexOf(itemId);
 
+    // Xác định xem đây có phải là nhạc từ Deezer không
+    const isExternal = String(itemId).startsWith('dz_');
+
     if (index > -1) {
-      // --- TRƯỜNG HỢP: BỎ TIM (UNLIKE) ---
+      // --- TRƯỜNG HỢP: BỎ TIM ---
       favoriteList.splice(index, 1);
 
-      // Cập nhật mảng 'like' trong Model mục tiêu (Xóa userId khỏi mảng like)
-      if (TargetModel) {
-        await TargetModel.findByIdAndUpdate(itemId, {
-          $pull: { like: user._id.toString() } // Hoặc dùng uid tùy vào cách bạn định nghĩa mảng like
+      // Chỉ cập nhật mảng 'like' trong DB nếu là nhạc nội bộ (không phải dz_)
+      if (type === 'songs' && !isExternal) {
+        await Song.findByIdAndUpdate(itemId, {
+          $pull: { like: user._id }
         });
+      } else if (type !== 'songs') {
+        // Xử lý cho Album, Artist, Playlist như cũ
+        let TargetModel = type === 'albums' ? Album : (type === 'artists' ? Artist : Playlist);
+        if (TargetModel) {
+          await TargetModel.findByIdAndUpdate(itemId, { $pull: { like: user._id } });
+        }
       }
     } else {
-      // --- TRƯỜNG HỢP: BẤM TIM (LIKE) ---
+      // --- TRƯỜNG HỢP: BẤM TIM ---
       favoriteList.push(itemId);
 
-      // Cập nhật mảng 'like' trong Model mục tiêu (Thêm userId vào mảng like)
-      if (TargetModel) {
-        await TargetModel.findByIdAndUpdate(itemId, {
-          $addToSet: { like: user._id.toString() } // $addToSet để tránh trùng lặp
+      // Chỉ cập nhật mảng 'like' trong DB nếu là nhạc nội bộ
+      if (type === 'songs' && !isExternal) {
+        await Song.findByIdAndUpdate(itemId, {
+          $addToSet: { like: user._id }
         });
+      } else if (type !== 'songs') {
+        let TargetModel = type === 'albums' ? Album : (type === 'artists' ? Artist : Playlist);
+        if (TargetModel) {
+          await TargetModel.findByIdAndUpdate(itemId, { $addToSet: { like: user._id } });
+        }
       }
     }
 
-    // 3. Lưu lại User
+    // Đánh dấu mảng favorites đã thay đổi (cần thiết khi làm việc với mixed types hoặc mảng)
+    user.markModified('favorites'); 
     await user.save();
     
     res.status(200).json({ 
       success: true, 
-      type,
       updatedFavorites: user.favorites[type] 
     });
   } catch (error) {
