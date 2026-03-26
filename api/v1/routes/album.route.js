@@ -13,10 +13,6 @@ const uploadCloud = require("../middleware/uploadCloud.middleware");
 
 const upload = multer();
 
-// 1. TÌM KIẾM BÀI HÁT
-route.get('/search', controller.search);
-
-// 5. LẤY NHẠC TRONG ALBUM (MỚI)
 route.get('/:id/tracks', controller.getSongs);
 
 route.get("/all-albums", controller.getAllAlbums);

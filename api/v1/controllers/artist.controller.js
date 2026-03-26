@@ -1,125 +1,7 @@
 const Song = require("../models/song.model");
 const Artist = require("../models/artist.model");
-
-module.exports.search = async (req, res) => {
-    try {
-        // 1. Lấy danh sách artistId duy nhất từ bảng Song
-        const existingArtistsInSongs = await Song.aggregate([
-            { $match: { deleted: false, artistId: { $ne: null } } },
-            {
-                $group: {
-                    _id: "$artistId",
-                    name: { $first: "$artistName" },
-                    avatar: { $first: "$artistAvatar" }
-                }
-            }
-        ]);
-
-        if (!existingArtistsInSongs.length) {
-            return res.status(200).json({ message: "Không tìm thấy dữ liệu nghệ sĩ trong bảng Songs." });
-        }
-
-        const finalResults = [];
-
-        // 2. Lặp qua từng nghệ sĩ để đồng bộ thông tin Artist và bài hát
-        for (const item of existingArtistsInSongs) {
-            const deezerIdStr = item._id.toString();
-
-            // 2.1 Cập nhật thông tin Artist vào DB
-            const updatedArtist = await Artist.findOneAndUpdate(
-                { deezerId: deezerIdStr },
-                {
-                    $set: {
-                        name: item.name,
-                        avatar: item.avatar || "",
-                        status: "active"
-                    }
-                },
-                { upsert: true, new: true, setDefaultsOnInsert: true }
-            ).lean();
-
-            // 2.2 Gọi API Deezer lấy Top 5 bài hát của nghệ sĩ này
-            try {
-                const response = await fetch(`https://api.deezer.com/artist/${deezerIdStr}/top?limit=5`);
-                const data = await response.json();
-
-                if (data && data.data) {
-                    const songUpsertPromises = data.data.map(async (songItem) => {
-                        // Khởi tạo các chỉ số ngẫu nhiên cho bài mới
-                        const randomListen = Math.floor(Math.random() * 49001) + 1000;
-                        const randomLike = Math.floor(Math.random() * 151) + 50;
-                        const fakeLikes = Array.from({ length: randomLike }, (_, i) => `fake_uid_${i}`);
-
-                        const songData = {
-                            title: songItem.title,
-                            cover: songItem.album.cover_xl || songItem.album.cover_medium,
-                            artistId: deezerIdStr,
-                            artistName: updatedArtist.name,
-                            artistAvatar: updatedArtist.avatar,
-                            albumId: songItem.album.id.toString(),
-                            albumName: songItem.album.title,
-                            deezerId: songItem.id,
-                            duration: songItem.duration,
-                            audio: songItem.preview,
-                            status: "active"
-                        };
-
-                        return Song.findOneAndUpdate(
-                            { deezerId: songItem.id },
-                            { 
-                                $set: songData,
-                                // Chỉ gán lượt nghe/like ảo nếu là bài hát mới hoàn toàn
-                                $setOnInsert: { listen: randomListen, like: fakeLikes } 
-                            },
-                            { upsert: true, new: true, setDefaultsOnInsert: true }
-                        );
-                    });
-
-                    await Promise.all(songUpsertPromises);
-                }
-            } catch (apiError) {
-                console.error(`Unable to retrieve song for artist ${deezerIdStr}:`, apiError.message);
-            }
-
-            finalResults.push(updatedArtist);
-        }
-
-        // 3. Trả về danh sách nghệ sĩ đã được đồng bộ
-        res.status(200).json(finalResults);
-
-    } catch (error) {
-        console.error("Sync Error:", error);
-        res.status(500).json({ message: "System error", error: error.message });
-    }
-};
-
-module.exports.getSongs = async (req, res) => {
-    const { id } = req.params; // id ở đây là artistId (deezerId)
-    
-    try {
-        // Truy vấn vào DB để tìm các bài hát có artistId tương ứng
-        // Chúng ta sắp xếp theo lượt nghe (listen) giảm dần để lấy các bài hay nhất
-        const songs = await Song.find({
-            artistId: id,
-            deleted: false,
-            status: "active"
-        })
-        .sort({ listen: -1 }) // Ưu tiên các bài hát có nhiều lượt nghe nhất
-        .limit(10)
-        .lean();              // Chuyển về Plain Object để xử lý nhanh hơn
-
-        // Trả về kết quả cho Frontend
-        // Lưu ý: Chúng ta trả về mảng rỗng [] nếu không tìm thấy, tránh crash FE
-        res.status(200).json(songs);
-
-    } catch (error) {
-        console.error("Error retrieving songs from DB:", error);
-        res.status(500).json({ 
-            message: "Error retrieving internal playlist", 
-            error: error.message 
-        });
-    }
-}
+const Album = require("../models/album.model");
+const Playlist = require("../models/playlist.model");
 
 // [GET] /api/artists
 module.exports.getAllArtists = async (req, res) => {
@@ -205,15 +87,49 @@ module.exports.update = async (req, res) => {
 module.exports.delete = async (req, res) => {
   try {
     const { id } = req.params;
-    // Thực hiện xóa mềm
-    await Artist.findByIdAndUpdate(id, { 
+    const now = new Date();
+
+    // 1. Thực hiện xóa mềm Artist
+    const deletedArtist = await Artist.findByIdAndUpdate(id, { 
       deleted: true, 
-      deletedAt: new Date() 
+      deletedAt: now 
     });
+
+    if (!deletedArtist) {
+      return res.status(404).json({ success: false, message: "No artist found!" });
+    }
+
+    // 2. Tìm tất cả ID bài hát của Artist này TRƯỚC khi cập nhật deleted
+    // Bước này quan trọng để có danh sách ID gỡ khỏi Playlist
+    const songsOfArtist = await Song.find({ artistId: id, deleted: false }).select("_id");
+    const songIds = songsOfArtist.map(song => song._id);
+
+    // 3. Đồng bộ xóa tất cả bài hát của Artist này
+    await Song.updateMany(
+      { artistId: id },
+      { $set: { deleted: true, deletedAt: now } }
+    );
+
+    // 4. Đồng bộ xóa tất cả Album của Artist này
+    await Album.updateMany(
+      { artistId: id },
+      { $set: { deleted: true, deletedAt: now } }
+    );
+
+    // 5. CẬP NHẬT PLAYLIST (Mới)
+    // Loại bỏ tất cả ID bài hát thuộc Artist này khỏi mảng 'songs' của mọi Playlist
+    if (songIds.length > 0) {
+      await Playlist.updateMany(
+        { songs: { $in: songIds } }, 
+        { 
+          $pull: { songs: { $in: songIds } } 
+        }
+      );
+    }
 
     res.status(200).json({
       success: true,
-      message: "Successfully removed the artist!"
+      message: "Artist, related albums, songs removed and Playlists updated successfully!"
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

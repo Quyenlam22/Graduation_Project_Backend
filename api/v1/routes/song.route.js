@@ -12,8 +12,6 @@ const uploadCloud = require("../middleware/uploadCloud.middleware");
 
 const upload = multer();
 
-route.get('/search', controller.search);
-
 route.get('/preview/:deezerId', controller.getPreview);
 
 route.get('/all-songs', controller.getAllSongs);

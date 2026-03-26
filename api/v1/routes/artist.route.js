@@ -12,12 +12,6 @@ const uploadCloud = require("../middleware/uploadCloud.middleware");
 
 const upload = multer();
 
-// 1. TÌM KIẾM BÀI HÁT
-route.get('/search', controller.search);
-
-// 4. LẤY NHẠC CỦA NGHỆ SĨ
-route.get('/:id/top', controller.getSongs);
-
 route.get("/all-artists", controller.getAllArtists);
 
 route.post("/create", verifyToken, isAdmin, upload.single("avatar"), uploadCloud.uploadSingle, controller.create);
