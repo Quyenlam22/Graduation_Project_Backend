@@ -39,6 +39,11 @@ const songSchema = new mongoose.Schema({
 
     lyrics: { type: String, default: "" },
     audio: { type: String, required: true }, // Link stream bài hát
+
+    mood: [{
+        en: { type: String, trim: true }, // Ví dụ: "Sad"
+        vi: { type: String, trim: true }  // Ví dụ: "Buồn"
+    }],
     
     status: { 
         type: String, 
