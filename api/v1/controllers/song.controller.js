@@ -197,22 +197,39 @@ module.exports.delete = async (req, res) => {
 
 module.exports.getPreview = async (req, res) => {
   try {
-    const { deezerId } = req.params; // Nhận deezerId từ URL (vd: dz_141339819 hoặc 65abc...)
-
-    if (!deezerId) {
-      return res.status(400).json({ success: false, message: "Missing Song ID" });
-    }
+    const { deezerId } = req.params;
+    if (!deezerId) return res.status(400).json({ success: false, message: "Missing ID" });
 
     const idStr = String(deezerId);
 
-    // --- TRƯỜNG HỢP 1: NHẠC NGOẠI (DEEZER) ---
-    if (idStr.startsWith('dz_') || !mongoose.Types.ObjectId.isValid(idStr)) {
+    // 1. ƯU TIÊN KIỂM TRA NHẠC NỘI BỘ (LOCAL) TRƯỚC
+    // Nếu là một mã ObjectId hợp lệ của MongoDB
+    if (mongoose.Types.ObjectId.isValid(idStr) && !idStr.startsWith('dz_')) {
+      const song = await Song.findById(idStr);
 
-      // Lấy ID số thuần túy (loại bỏ dz_ nếu có)
-      const deezerId = idStr.replace('dz_', '');
+      // SỬA TẠI ĐÂY: Dùng song.audio thay vì song.src
+      if (song && song.audio) {
+        return res.json({
+          success: true,
+          preview: song.audio,
+          source: 'local'
+        });
+      }
+    }
 
-      // Gọi API Deezer lấy thông tin mới nhất (đặc biệt là link preview mới)
-      const response = await fetch(`https://api.deezer.com/track/${deezerId}`);
+    // 2. TRƯỜNG HỢP NHẠC NGOẠI (DEEZER)
+    // Nếu bắt đầu bằng dz_ hoặc là một dãy số thuần túy (deezerId)
+    const cleanId = idStr.replace('dz_', '');
+    const isPureNumber = /^\d+$/.test(cleanId);
+
+    if (idStr.startsWith('dz_') || isPureNumber) {
+      // Gọi API Deezer với User-Agent để tránh bị chặn (lỗi HTML <!DOCTYPE)
+      const response = await fetch(`https://api.deezer.com/track/${cleanId}`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
+
       const data = await response.json();
 
       if (data && data.preview) {
@@ -224,23 +241,11 @@ module.exports.getPreview = async (req, res) => {
       }
     }
 
-    // --- TRƯỜNG HỢP 2: NHẠC NỘI BỘ (LOCAL) ---
-    else {
-      const song = await Song.findById(idStr);
-      if (song && song.src) {
-        return res.json({
-          success: true,
-          preview: song.src,
-          source: 'local'
-        });
-      }
-    }
-
-    res.status(404).json({ success: false, message: "The sound is absent or has been removed." });
+    res.status(404).json({ success: false, message: "Không tìm thấy nguồn nhạc hợp lệ." });
 
   } catch (error) {
     console.error("Preview Error:", error);
-    res.status(500).json({ success: false, message: "Server error when retrieving music source." });
+    res.status(500).json({ success: false, message: "Lỗi hệ thống", error: error.message });
   }
 };
 
