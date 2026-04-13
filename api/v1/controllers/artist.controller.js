@@ -34,7 +34,7 @@ module.exports.create = async (req, res) => {
       deezerId,
       nb_fan,
       status,
-      avatar 
+      avatar
     });
 
     await newArtist.save();
@@ -64,12 +64,21 @@ module.exports.update = async (req, res) => {
 
     // 2. LOGIC CẬP NHẬT ĐỒNG BỘ SANG SONG
     await Song.updateMany(
-      { artistId: id }, 
-      { 
-        $set: { 
+      { artistId: id },
+      {
+        $set: {
           artistName: updatedArtist.name,
-          artistAvatar: updatedArtist.avatar 
-        } 
+          artistAvatar: updatedArtist.avatar
+        }
+      }
+    );
+
+    await Album.updateMany(
+      { artistId: id },
+      {
+        $set: {
+          artistName: updatedArtist.name
+        }
       }
     );
 
@@ -90,9 +99,9 @@ module.exports.delete = async (req, res) => {
     const now = new Date();
 
     // 1. Thực hiện xóa mềm Artist
-    const deletedArtist = await Artist.findByIdAndUpdate(id, { 
-      deleted: true, 
-      deletedAt: now 
+    const deletedArtist = await Artist.findByIdAndUpdate(id, {
+      deleted: true,
+      deletedAt: now
     });
 
     if (!deletedArtist) {
@@ -120,9 +129,9 @@ module.exports.delete = async (req, res) => {
     // Loại bỏ tất cả ID bài hát thuộc Artist này khỏi mảng 'songs' của mọi Playlist
     if (songIds.length > 0) {
       await Playlist.updateMany(
-        { songs: { $in: songIds } }, 
-        { 
-          $pull: { songs: { $in: songIds } } 
+        { songs: { $in: songIds } },
+        {
+          $pull: { songs: { $in: songIds } }
         }
       );
     }
@@ -137,14 +146,14 @@ module.exports.delete = async (req, res) => {
 };
 
 module.exports.getArtistsByIds = async (req, res) => {
-    try {
-        const { ids } = req.body;
-        const artists = await Artist.find({
-            _id: { $in: ids },
-            deleted: false
-        });
-        res.json({ success: true, data: artists });
-    } catch (error) {
-        res.status(500).json({ success: false, message: "Error retrieving artist list!" });
-    }
+  try {
+    const { ids } = req.body;
+    const artists = await Artist.find({
+      _id: { $in: ids },
+      deleted: false
+    });
+    res.json({ success: true, data: artists });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error retrieving artist list!" });
+  }
 };

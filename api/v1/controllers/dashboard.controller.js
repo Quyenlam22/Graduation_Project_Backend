@@ -1,4 +1,3 @@
-// const Stream = require("../models/stream.model");
 const Song = require("../models/song.model");
 const User = require("../models/user.model");
 const Artist = require("../models/artist.model");
@@ -8,11 +7,11 @@ const Playlist = require("../models/playlist.model");
 module.exports.getStats = async (req, res) => {
     try {
         const [totalSongs, totalUsers, totalArtists, totalAlbums, totalPlaylists, topLikedSongs, userGrowth] = await Promise.all([
-            Song.countDocuments({}), 
+            Song.countDocuments({}),
             User.countDocuments({}),
             Artist.countDocuments({}),
             Album.countDocuments({}),
-            Playlist.countDocuments({}), 
+            Playlist.countDocuments({}),
 
             // --- THỐNG KÊ TOP 5 BÀI HÁT TỪ BẢNG SONGS ---
             Song.aggregate([
@@ -22,7 +21,7 @@ module.exports.getStats = async (req, res) => {
                         title: 1,
                         cover: 1,
                         // Tính toán số lượng like dựa trên độ dài mảng like
-                        count: { $size: { $ifNull: ["$like", []] } }, 
+                        count: { $size: { $ifNull: ["$like", []] } },
                         listen: 1
                     }
                 },
@@ -45,12 +44,12 @@ module.exports.getStats = async (req, res) => {
         res.json({
             success: true,
             data: {
-                counts: { 
-                    totalSongs: totalSongs || 0, 
-                    totalUsers: totalUsers || 0, 
-                    totalArtists: totalArtists || 0, 
-                    totalAlbums: totalAlbums || 0, 
-                    totalPlaylists: totalPlaylists || 0 
+                counts: {
+                    totalSongs: totalSongs || 0,
+                    totalUsers: totalUsers || 0,
+                    totalArtists: totalArtists || 0,
+                    totalAlbums: totalAlbums || 0,
+                    totalPlaylists: totalPlaylists || 0
                 },
                 // Dữ liệu Top Liked Songs lúc này đã có đầy đủ title và cover từ bảng Song
                 topLikedSongs: topLikedSongs.map(item => ({
