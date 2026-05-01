@@ -4,7 +4,7 @@ const Playlist = require("../models/playlist.model");
 module.exports.getAllPlaylists = async (req, res) => {
     try {
         const playlists = await Playlist.find({ deleted: false })
-            .populate('songs') 
+            .populate('songs')
             .sort({ createdAt: -1 });
 
         res.status(200).json({
@@ -21,7 +21,6 @@ module.exports.create = async (req, res) => {
     try {
         const data = req.body;
 
-        // Xử lý Parse mảng songs từ String sang Array
         if (data.songs) {
             data.songs = JSON.parse(data.songs);
         }
@@ -45,21 +44,20 @@ module.exports.update = async (req, res) => {
         const { id } = req.params;
         const updateData = { ...req.body };
 
-        // Xử lý Parse mảng songs từ String sang Array tương tự create
         if (updateData.songs) {
             updateData.songs = JSON.parse(updateData.songs);
         }
 
         const updatedPlaylist = await Playlist.findByIdAndUpdate(id, updateData, { new: true });
-        
+
         if (!updatedPlaylist) {
             return res.status(404).json({ success: false, message: "Playlist not found!" });
         }
 
-        res.status(200).json({ 
-            success: true, 
-            message: "Update successful!", 
-            data: updatedPlaylist 
+        res.status(200).json({
+            success: true,
+            message: "Update successful!",
+            data: updatedPlaylist
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -70,8 +68,8 @@ module.exports.update = async (req, res) => {
 module.exports.delete = async (req, res) => {
     try {
         const deletedPlaylist = await Playlist.findByIdAndUpdate(
-            req.params.id, 
-            { deleted: true, deletedAt: new Date() }, // Nên thêm deletedAt để đối soát
+            req.params.id,
+            { deleted: true, deletedAt: new Date() },
             { new: true }
         );
 

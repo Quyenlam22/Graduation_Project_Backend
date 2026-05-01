@@ -5,37 +5,33 @@ mongoose.plugin(slug);
 
 const albumSchema = new mongoose.Schema({
     title: { type: String, required: true, trim: true },
-    avatar: String, // Ảnh bìa album (cover)
+    avatar: String,
     description: String,
-    
-    // ID từ Deezer để đồng bộ
-    deezerId: { type: String, unique: true, sparse: true }, 
-    
-    // Thông tin nghệ sĩ sở hữu album
+
+    deezerId: { type: String, unique: true, sparse: true },
+
     artistName: String,
     artistId: String,
 
-    // Số lượng bài hát trong album
     nb_tracks: { type: Number, default: 0 },
 
-    // Mảng lưu ID người dùng thích album này
     like: {
         type: [String],
         default: []
     },
 
-    status: { 
-        type: String, 
-        enum: ["active", "inactive"], 
-        default: "active" 
+    status: {
+        type: String,
+        enum: ["active", "inactive"],
+        default: "active"
     },
-    
+
     slug: {
         type: String,
-        slug: ["title", "deezerId"], // Kết hợp để đảm bảo duy nhất
+        slug: ["title", "deezerId"],
         unique: true
     },
-    
+
     deleted: {
         type: Boolean,
         default: false

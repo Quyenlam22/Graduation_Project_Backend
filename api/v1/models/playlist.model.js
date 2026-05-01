@@ -12,7 +12,7 @@ const playlistSchema = new mongoose.Schema({
   userId: {
     type: String,
     default: "system"
-  }, // "system" cho playlist mặc định
+  },
   songs: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Song'

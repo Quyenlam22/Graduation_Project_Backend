@@ -8,7 +8,6 @@ module.exports.chatbot = async (req, res) => {
       return res.status(400).json({ error: "Message required" });
     }
 
-    // --- PHẦN MỚI: XỬ LÝ MOOD ---
     const moodKeywords = [
       { key: "buồn", en: "sad" },
       { key: "vui", en: "happy" },
@@ -34,7 +33,7 @@ module.exports.chatbot = async (req, res) => {
         status: "active"
       })
         .limit(5)
-        .select("title artistName cover _id deezerId"); // QUAN TRỌNG: Lấy thêm _id và deezerId
+        .select("title artistName cover _id deezerId");
 
       if (suggestedSongs.length > 0) {
         const songsMetadata = suggestedSongs.map((s, index) => JSON.stringify({
@@ -57,22 +56,19 @@ QUY TẮC BẮT BUỘC:
 2. Với mỗi bài hát, hãy copy nguyên văn dòng JSON (VD: {"type": "song_link", ...}) sang một dòng mới trong câu trả lời.
 3. Tuyệt đối không được thay đổi nội dung bên trong các dấu ngoặc nhọn {}.
 4. Luôn bắt đầu bằng một lời dẫn thân thiện và kết thúc bằng một câu hỏi gợi mở.`;
-    // --- HẾT PHẦN MOOD ---
 
-    // Giữ nguyên logic lấy lịch sử của bạn
     const chatHistory = await Chat.find({})
       .sort({ createdAt: 1 })
       .limit(20)
       .lean();
 
-    // Chuẩn bị dữ liệu gửi cho Gemini (Giữ nguyên cấu trúc cũ, chèn systemPrompt vào đầu)
     const contents = [
       {
         role: "user",
         parts: [{ text: systemPrompt + moodContext }]
       },
       ...chatHistory.map(msg => ({
-        role: msg.role === "model" ? "model" : "user", // Đảm bảo role đúng chuẩn Gemini
+        role: msg.role === "model" ? "model" : "user",
         parts: [
           ...(msg.text ? [{ text: msg.text }] : []),
           ...(msg.image ? [{ text: `Image URL: ${msg.image}` }] : [])
@@ -110,9 +106,8 @@ QUY TẮC BẮT BUỘC:
       return res.status(500).json({ error: "Gemini don't reply", raw: data });
     }
 
-    // Giữ nguyên logic lưu và xóa tin nhắn cũ của bạn
     const content = await Chat.insertMany([
-      { role: "user", text, image: image }, // Lưu image vào field image như cũ
+      { role: "user", text, image: image },
       { role: "model", text: reply }
     ]);
 

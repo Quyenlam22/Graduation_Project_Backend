@@ -7,7 +7,7 @@ const controller = require('../controllers/artist.controller');
 const {
   verifyToken,
   isAdmin
-} = require('../middleware/checkAdmin'); // Must login to call API
+} = require('../middleware/checkAdmin');
 const uploadCloud = require("../middleware/uploadCloud.middleware");
 
 const upload = multer();

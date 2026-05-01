@@ -6,7 +6,6 @@ const Playlist = require("../models/playlist.model");
 // [GET] /api/artists
 module.exports.getAllArtists = async (req, res) => {
   try {
-    // Chỉ lấy các artist chưa bị xóa (deleted: false)
     const artists = await Artist.find({ deleted: false }).sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -23,7 +22,6 @@ module.exports.create = async (req, res) => {
   try {
     const { name, deezerId, nb_fan, status, avatar } = req.body;
 
-    // Kiểm tra trùng tên
     const existArtist = await Artist.findOne({ name, deleted: false });
     if (existArtist) {
       return res.status(400).json({ success: false, message: "This artist has existed!" });
@@ -55,14 +53,12 @@ module.exports.update = async (req, res) => {
     const { id } = req.params;
     const updateData = { ...req.body };
 
-    // 1. Cập nhật thông tin Nghệ sĩ
     const updatedArtist = await Artist.findByIdAndUpdate(id, updateData, { new: true });
 
     if (!updatedArtist) {
       return res.status(404).json({ success: false, message: "No artist found!" });
     }
 
-    // 2. LOGIC CẬP NHẬT ĐỒNG BỘ SANG SONG
     await Song.updateMany(
       { artistId: id },
       {
@@ -98,7 +94,6 @@ module.exports.delete = async (req, res) => {
     const { id } = req.params;
     const now = new Date();
 
-    // 1. Thực hiện xóa mềm Artist
     const deletedArtist = await Artist.findByIdAndUpdate(id, {
       deleted: true,
       deletedAt: now
@@ -108,25 +103,19 @@ module.exports.delete = async (req, res) => {
       return res.status(404).json({ success: false, message: "No artist found!" });
     }
 
-    // 2. Tìm tất cả ID bài hát của Artist này TRƯỚC khi cập nhật deleted
-    // Bước này quan trọng để có danh sách ID gỡ khỏi Playlist
     const songsOfArtist = await Song.find({ artistId: id, deleted: false }).select("_id");
     const songIds = songsOfArtist.map(song => song._id);
 
-    // 3. Đồng bộ xóa tất cả bài hát của Artist này
     await Song.updateMany(
       { artistId: id },
       { $set: { deleted: true, deletedAt: now } }
     );
 
-    // 4. Đồng bộ xóa tất cả Album của Artist này
     await Album.updateMany(
       { artistId: id },
       { $set: { deleted: true, deletedAt: now } }
     );
 
-    // 5. CẬP NHẬT PLAYLIST (Mới)
-    // Loại bỏ tất cả ID bài hát thuộc Artist này khỏi mảng 'songs' của mọi Playlist
     if (songIds.length > 0) {
       await Playlist.updateMany(
         { songs: { $in: songIds } },

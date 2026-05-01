@@ -8,12 +8,10 @@ const controller = require('../controllers/album.controller');
 const {
   verifyToken,
   isAdmin
-} = require('../middleware/checkAdmin'); // Must login to call API
+} = require('../middleware/checkAdmin');
 const uploadCloud = require("../middleware/uploadCloud.middleware");
 
 const upload = multer();
-
-route.get('/:id/tracks', controller.getSongs);
 
 route.get("/all-albums", controller.getAllAlbums);
 

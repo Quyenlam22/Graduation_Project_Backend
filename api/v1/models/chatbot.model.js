@@ -11,10 +11,6 @@ const chatSchema = new mongoose.Schema({
     required: true
   },
   imageUrl: { type: String },
-  // userId: {
-  //   type: String,
-  //   required: false
-  // },
 }, {
   timestamps: true
 });

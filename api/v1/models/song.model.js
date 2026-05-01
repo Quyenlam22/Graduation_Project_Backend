@@ -7,48 +7,45 @@ const songSchema = new mongoose.Schema({
     title: { type: String, required: true, trim: true },
     cover: String,
 
-    // Nếu có bảng Artist riêng thì dùng ref, nếu không thì giữ như dưới nhưng thêm ID
-    artistId: { type: String, index: true }, // ID từ Deezer để dễ sync
+    artistId: { type: String, index: true },
     artistName: String,
     artistAvatar: String,
-    
-    albumId: String, // ID Album từ Deezer
+
+    albumId: String,
     albumName: String,
 
-    // Deezer cung cấp ID bài hát gốc, nên lưu lại để tránh trùng lặp khi cào data
-    deezerId: { type: Number, unique: true, sparse: true }, 
+    deezerId: { type: Number, unique: true, sparse: true },
 
-    duration: Number, // Thời lượng (giây) - Rất quan trọng để hiển thị player
-    
-    // Thể loại: Deezer thường trả về mảng các thể loại
+    duration: Number,
+
     genres: [{
         genreId: String,
         name: String
     }],
 
     like: {
-        type: [String], // Mảng chứa ID của những User đã thích
+        type: [String],
         default: []
     },
 
     listen: {
         type: Number,
         default: 0,
-        index: true // Đánh index để sắp xếp bài hát hot nhanh hơn
+        index: true
     },
 
     lyrics: { type: String, default: "" },
-    audio: { type: String, required: true }, // Link stream bài hát
+    audio: { type: String, required: true },
 
     mood: [{
-        en: { type: String, trim: true }, // Ví dụ: "Sad"
-        vi: { type: String, trim: true }  // Ví dụ: "Buồn"
+        en: { type: String, trim: true },
+        vi: { type: String, trim: true }
     }],
-    
-    status: { 
-        type: String, 
-        enum: ["active", "inactive"], 
-        default: "active" 
+
+    status: {
+        type: String,
+        enum: ["active", "inactive"],
+        default: "active"
     },
 
     slug: {
@@ -66,7 +63,6 @@ const songSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Tạo index để tìm kiếm nhanh theo tên bài hát và nghệ sĩ
 songSchema.index({ title: 'text', artistName: 'text' });
 
 const Song = mongoose.model('Song', songSchema, "songs");

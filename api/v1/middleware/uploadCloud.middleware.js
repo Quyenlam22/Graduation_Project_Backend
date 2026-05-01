@@ -1,4 +1,3 @@
-// Cloud.js
 const cloudinary = require("cloudinary").v2;
 const streamifier = require("streamifier");
 const dotenv = require("dotenv");
@@ -33,13 +32,11 @@ const uploadToCloudinary = async (buffer) => {
   return result["url"];
 };
 
-// Export middleware uploadSingle
 const uploadSingle = async (req, res, next) => {
   try {
     if (req.file) {
       const link = await uploadToCloudinary(req.file.buffer);
-      // Gán link từ Cloudinary vào req.body.photoURL
-      req.body[req.file.fieldname] = link; 
+      req.body[req.file.fieldname] = link;
     }
     next();
   } catch (error) {
@@ -48,7 +45,6 @@ const uploadSingle = async (req, res, next) => {
   }
 };
 
-// Export middleware uploadFields
 const uploadFields = async (req, res, next) => {
   for (const key in req["files"]) {
     req.body[key] = [];
@@ -66,7 +62,6 @@ const uploadFields = async (req, res, next) => {
   next();
 };
 
-// Xuất các hàm theo kiểu CommonJS
 module.exports = {
   uploadSingle,
   uploadFields

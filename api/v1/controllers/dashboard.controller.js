@@ -13,23 +13,20 @@ module.exports.getStats = async (req, res) => {
             Album.countDocuments({}),
             Playlist.countDocuments({}),
 
-            // --- THỐNG KÊ TOP 5 BÀI HÁT TỪ BẢNG SONGS ---
             Song.aggregate([
-                { $match: { deleted: false } }, // Chỉ lấy nhạc chưa xóa
+                { $match: { deleted: false } },
                 {
                     $project: {
                         title: 1,
                         cover: 1,
-                        // Tính toán số lượng like dựa trên độ dài mảng like
                         count: { $size: { $ifNull: ["$like", []] } },
                         listen: 1
                     }
                 },
-                { $sort: { count: -1 } }, // Sắp xếp theo lượt Like giảm dần
+                { $sort: { count: -1 } },
                 { $limit: 5 }
             ]),
 
-            // Thống kê User theo tháng (Giữ nguyên)
             User.aggregate([
                 {
                     $group: {
@@ -51,7 +48,6 @@ module.exports.getStats = async (req, res) => {
                     totalAlbums: totalAlbums || 0,
                     totalPlaylists: totalPlaylists || 0
                 },
-                // Dữ liệu Top Liked Songs lúc này đã có đầy đủ title và cover từ bảng Song
                 topLikedSongs: topLikedSongs.map(item => ({
                     _id: item._id,
                     count: item.count,

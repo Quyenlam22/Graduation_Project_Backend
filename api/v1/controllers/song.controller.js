@@ -51,7 +51,6 @@ module.exports.create = async (req, res) => {
     const newSong = new Song(data);
     await newSong.save();
 
-    // --- LOGIC CẬP NHẬT ALBUM ---
     if (newSong.albumId) {
       await Album.findByIdAndUpdate(newSong.albumId, {
         $inc: { nb_tracks: 1 }
@@ -89,7 +88,6 @@ module.exports.update = async (req, res) => {
   } = req.body;
 
   try {
-    // 1. Tìm thông tin bài hát hiện tại trước khi update để lấy albumId cũ
     const currentSong = await Song.findById(id);
     if (!currentSong) {
       return res.status(404).json({ success: false, message: "Song not found!" });
@@ -128,15 +126,12 @@ module.exports.update = async (req, res) => {
 
     const updatedSong = await Song.findByIdAndUpdate(id, updateData, { new: true });
 
-    // 3. LOGIC CẬP NHẬT SỐ LƯỢNG TRACK TRONG ALBUM
     if (oldAlbumId !== newAlbumId) {
 
-      // Giảm số track ở Album cũ (nếu trước đó bài hát có thuộc album)
       if (oldAlbumId) {
         await Album.findByIdAndUpdate(oldAlbumId, { $inc: { nb_tracks: -1 } });
       }
 
-      // Tăng số track ở Album mới (nếu bài hát mới được gán vào album)
       if (newAlbumId) {
         await Album.findByIdAndUpdate(newAlbumId, { $inc: { nb_tracks: 1 } });
       }
@@ -158,7 +153,6 @@ module.exports.delete = async (req, res) => {
   const { id } = req.params;
 
   try {
-    // 1. Thực hiện xóa mềm bài hát
     const deletedSong = await Song.findByIdAndUpdate(
       id,
       {
@@ -172,7 +166,6 @@ module.exports.delete = async (req, res) => {
       return res.status(404).json({ success: false, message: "Song not found!" });
     }
 
-    // --- LOGIC CẬP NHẬT ALBUM ---
     if (deletedSong.albumId) {
       await Album.findByIdAndUpdate(deletedSong.albumId, {
         $inc: { nb_tracks: -1 }
@@ -202,12 +195,9 @@ module.exports.getPreview = async (req, res) => {
 
     const idStr = String(deezerId);
 
-    // 1. ƯU TIÊN KIỂM TRA NHẠC NỘI BỘ (LOCAL) TRƯỚC
-    // Nếu là một mã ObjectId hợp lệ của MongoDB
     if (mongoose.Types.ObjectId.isValid(idStr) && !idStr.startsWith('dz_')) {
       const song = await Song.findById(idStr);
 
-      // SỬA TẠI ĐÂY: Dùng song.audio thay vì song.src
       if (song && song.audio) {
         return res.json({
           success: true,
@@ -217,13 +207,10 @@ module.exports.getPreview = async (req, res) => {
       }
     }
 
-    // 2. TRƯỜNG HỢP NHẠC NGOẠI (DEEZER)
-    // Nếu bắt đầu bằng dz_ hoặc là một dãy số thuần túy (deezerId)
     const cleanId = idStr.replace('dz_', '');
     const isPureNumber = /^\d+$/.test(cleanId);
 
     if (idStr.startsWith('dz_') || isPureNumber) {
-      // Gọi API Deezer với User-Agent để tránh bị chặn (lỗi HTML <!DOCTYPE)
       const response = await fetch(`https://api.deezer.com/track/${cleanId}`, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -251,28 +238,23 @@ module.exports.getPreview = async (req, res) => {
 
 module.exports.getFavorites = async (req, res) => {
   try {
-    const { ids } = req.body; // ids: ["65abc...", "dz_141339819", ...]
+    const { ids } = req.body;
     if (!ids || !Array.isArray(ids)) {
       return res.status(400).json({ success: false, message: "Invalid IDs" });
     }
 
-    // 1. Phân loại ID
     const localIds = ids.filter(id => !String(id).startsWith('dz_'));
     const deezerIds = ids
       .filter(id => String(id).startsWith('dz_'))
       .map(id => id.replace('dz_', ''));
 
-    // 2. Lấy nhạc Local từ Database của bạn
     const localSongs = await Song.find({
       _id: { $in: localIds },
       deleted: false
-    }).lean(); // Dùng .lean() để dễ dàng thêm trường 'source'
+    }).lean();
 
-    // Gắn thêm flag source để Frontend nhận biết
     const formattedLocal = localSongs.map(s => ({ ...s, source: 'local' }));
 
-    // 3. Gọi trực tiếp API Deezer cho các bài nhạc ngoại
-    // Dùng Promise.all để gọi tất cả các ID Deezer cùng lúc (tối ưu tốc độ)
     const deezerPromises = deezerIds.map(async (id) => {
       try {
         const response = await fetch(`https://api.deezer.com/track/${id}`);
